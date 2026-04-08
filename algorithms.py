@@ -214,10 +214,11 @@ class RabinKarpSearch(SearchStrategy):
         collisions = 0
 
         for i in range(n - m + 1):
+            comparisons += 1  # comparação entre hashes da janela e do padrão
             if pattern_hash == window_hash:
                 matched = True
                 for j in range(m):
-                    comparisons += 1
+                    comparisons += 1  # comparação real de caracteres após hash compatível
                     if text[i + j] != pattern[j]:
                         matched = False
                         collisions += 1
@@ -265,6 +266,7 @@ class RabinKarpSearch(SearchStrategy):
         comparisons = 0
 
         for i in range(n - m + 1):
+            comparisons += 1
             same_hash = pattern_hash == window_hash
             steps.append({
                 "window_start": i,
@@ -273,7 +275,8 @@ class RabinKarpSearch(SearchStrategy):
                 "hash_window": window_hash,
                 "description": (
                     f"Janela [{i}:{i+m}] com hash {window_hash}. "
-                    f"{'Hash igual ao padrão' if same_hash else 'Hash diferente do padrão'}"
+                    f"{'Hash igual ao padrão' if same_hash else 'Hash diferente do padrão'} "
+                    f"(comparação de hash contabilizada)"
                 ),
             })
             if same_hash:
