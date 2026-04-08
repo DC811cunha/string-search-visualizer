@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>String Search Visualizer - Final</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #252836;
+      --border: #2e3247;
+      --accent: #6c63ff;
+      --accent2: #ff6584;
+      --green: #4ade80;
+      --yellow: #facc15;
+      --red: #f87171;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    header span { font-size: 0.8rem; color: var(--muted); background: var(--surface2); padding: 2px 8px; border-radius: 20px; }
+
+    .layout { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 60px); }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 1.5rem;
+      overflow-y: auto;
+    }
+    .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: .5rem; }
+
+    label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .4rem; }
+    input[type=text], select, textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: var(--radius); padding: .6rem .8rem;
+      font-size: .9rem; outline: none; transition: border .2s;
+    }
+    input[type=text]:focus, select:focus { border-color: var(--accent); }
+
+    .upload-area {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 1.5rem; text-align: center; cursor: pointer; transition: border .2s;
+    }
+    .upload-area:hover, .upload-area.drag { border-color: var(--accent); }
+    .upload-area svg { margin-bottom: .5rem; }
+    .upload-area p { font-size: .8rem; color: var(--muted); }
+    #fileInput { display: none; }
+
+    .file-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+    .chip {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2px 10px; font-size: .75rem;
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .chip button { background: none; border: none; color: var(--red); cursor: pointer; font-size: .9rem; line-height: 1; }
+
+    .algo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    .algo-card {
+      background: var(--surface2); border: 2px solid var(--border);
+      border-radius: var(--radius); padding: .7rem; cursor: pointer;
+      transition: border .2s; text-align: center;
+    }
+    .algo-card.active { border-color: var(--accent); }
+    .algo-card .algo-name { font-size: .8rem; font-weight: 600; }
+    .algo-card .algo-complex { font-size: .65rem; color: var(--muted); margin-top: .2rem; }
+
+    .btn {
+      width: 100%; padding: .75rem; border: none; border-radius: var(--radius);
+      font-size: .9rem; font-weight: 600; cursor: pointer; transition: opacity .2s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-row { display: flex; gap: .5rem; }
+    .btn-row .btn { flex: 1; }
+
+    /* ── Main ── */
+    .main { padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem;
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .card-title { font-size: .95rem; font-weight: 700; }
+
+    /* Text visualizer */
+    .text-display {
+      font-family: monospace; font-size: .85rem; line-height: 1.8;
+      word-break: break-all; background: var(--surface2);
+      border-radius: var(--radius); padding: 1rem; max-height: 400px; overflow-y: auto;
+    }
+    .text-display .ch { display: inline-block; padding: 0 1px; border-radius: 3px; }
+    .ch.highlight-text    { background: var(--yellow); color: #000; }
+    .ch.highlight-pattern { background: var(--accent);  color: #fff; }
+    .ch.highlight-found   { background: var(--green);   color: #000; }
+    .ch.highlight-miss    { background: var(--red);     color: #fff; }
+
+    /* Pattern display */
+    .pattern-display {
+      font-family: monospace; font-size: .85rem;
+      background: var(--surface2); border-radius: var(--radius);
+      padding: .75rem 1rem; margin-top: .5rem; display: flex; gap: 2px; flex-wrap: wrap;
+    }
+    .pat-ch {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 4px;
+      border: 1px solid var(--border); font-size: .8rem;
+    }
+    .pat-ch.active  { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .pat-ch.matched { background: var(--green);  border-color: var(--green);  color: #000; }
+    .pat-ch.missed  { background: var(--red);    border-color: var(--red);    color: #fff; }
+
+    /* Step log */
+    .step-log {
+      max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: .4rem;
+    }
+    .step-entry {
+      background: var(--surface2); border-left: 3px solid var(--border);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: .5rem .75rem; font-size: .8rem; line-height: 1.4;
+    }
+    .step-entry.found   { border-left-color: var(--green); }
+    .step-entry.miss    { border-left-color: var(--red); }
+    .step-entry.match   { border-left-color: var(--accent); }
+    .step-entry.info    { border-left-color: var(--yellow); }
+    .step-meta { color: var(--muted); font-size: .72rem; margin-top: .2rem; }
+
+    /* Step controls */
+    .step-controls { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+    .step-counter { font-size: .8rem; color: var(--muted); }
+    .progress-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; min-width: 80px; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
+    .ctrl-btn {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 6px; padding: .35rem .75rem; cursor: pointer; font-size: .8rem;
+    }
+    .ctrl-btn:hover { border-color: var(--accent); }
+    .ctrl-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* Metrics */
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .75rem; }
+    .metric-card {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: .9rem; text-align: center;
+    }
+    .metric-value { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+    .metric-label { font-size: .7rem; color: var(--muted); margin-top: .2rem; }
+
+    /* Compare */
+    .compare-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .compare-table th, .compare-table td { padding: .6rem .8rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .compare-table th { color: var(--muted); font-weight: 600; font-size: .72rem; text-transform: uppercase; }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table .best { color: var(--green); font-weight: 700; }
+
+    /* Badges */
+    .badge { display: inline-block; font-size: .72rem; padding: 2px 8px; border-radius: 20px; }
+    .badge-found { background: rgba(74,222,128,.15); color: var(--green); border: 1px solid var(--green); }
+    .badge-none  { background: rgba(248,113,113,.1);  color: var(--red);   border: 1px solid var(--red);   }
+    .badge-warn  { background: rgba(250,204,21,.12);   color: var(--yellow); border: 1px solid var(--yellow); }
+
+    /* Tabs */
+    .tab-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); border-radius: var(--radius);
+      padding: .35rem .9rem; cursor: pointer; font-size: .78rem;
+      display: inline-flex; align-items: center; gap: .4rem; transition: border .2s;
+    }
+    .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+    .tab-btn.tab-active { border-color: var(--accent); color: var(--text); background: var(--surface); }
+    .tab-badge { font-size: .65rem; padding: 1px 6px; border-radius: 10px; }
+    .tab-badge-found { background: rgba(74,222,128,.2); color: var(--green); }
+    .tab-badge-none  { background: rgba(248,113,113,.15); color: var(--red); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle;
+    }
+
+    /* Aux table */
+    .aux-table { border-collapse: collapse; font-size: .78rem; font-family: monospace; }
+    .aux-table td { padding: 3px 8px; border: 1px solid var(--border); text-align: center; }
+    .aux-table td.header { background: var(--surface2); color: var(--muted); }
+
+    /* Notice de truncamento */
+    .truncate-notice {
+      font-size: .72rem; color: var(--yellow); margin-top: .5rem; padding: .4rem .75rem;
+      background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.2);
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <rect width="28" height="28" rx="6" fill="#6c63ff22"/>
+    <path d="M6 10h16M6 14h10M6 18h13" stroke="#6c63ff" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="21" cy="18" r="4" stroke="#ff6584" stroke-width="1.5"/>
+    <path d="M24 21l2.5 2.5" stroke="#ff6584" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  <h1>String Search Visualizer - Final</h1>
+  <span>Algoritmos Avançados</span>
+</header>
+
+<div class="layout">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+
+    <div>
+      <div class="section-title">📁 Arquivos .txt</div>
+      <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <svg width="32" height="32" fill="none" viewBox="0 0 32 32"><path d="M16 4v16M10 10l6-6 6 6" stroke="#6c63ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 22v2a2 2 0 002 2h16a2 2 0 002-2v-2" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <p>Arraste arquivos .txt ou clique para selecionar</p>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".txt"/>
+      <div class="file-chips" id="fileChips"></div>
+    </div>
+
+    <div>
+      <div class="section-title">🔍 Padrão de Busca</div>
+      <label>String a buscar</label>
+      <input type="text" id="patternInput" placeholder="ex: algoritmo"/>
+      <div style="margin-top:.4rem;font-size:.72rem;color:var(--yellow)">⚡ Busca sem diferença entre maiúsculas/minúsculas</div>
+    </div>
+
+    <div>
+      <div class="section-title">⚙️ Algoritmo</div>
+      <div class="algo-grid" id="algoGrid">
+        <div class="algo-card active" data-algo="naive">
+          <div class="algo-name">Naive</div>
+          <div class="algo-complex">O(n·m)</div>
+        </div>
+        <div class="algo-card" data-algo="rabin_karp">
+          <div class="algo-name">Rabin-Karp</div>
+          <div class="algo-complex">O(n+m)</div>
+        </div>
+        <div class="algo-card" data-algo="kmp">
+          <div class="algo-name">KMP</div>
+          <div class="algo-complex">O(n+m)</div>
+        </div>
+        <div class="algo-card" data-algo="boyer_moore">
+          <div class="algo-name">Boyer-Moore</div>
+          <div class="algo-complex">O(n/m)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary"   id="btnRun">▶ Executar</button>
+      <button class="btn btn-secondary" id="btnStep">👣 Passo a Passo</button>
+    </div>
+
+    <div>
+      <div class="section-title">📊 Comparar Todos</div>
+      <button class="btn btn-secondary" id="btnCompare">⚡ Comparar Algoritmos</button>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- Visualizador de texto (multi-arquivo) -->
+    <div class="card" id="cardText" style="display:none">
+      <div class="card-header">
+        <span class="card-title">📄 Texto</span>
+      </div>
+      <div id="fileTabs" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem"></div>
+      <div class="text-display" id="textDisplay"></div>
+      <div class="pattern-display" id="patternDisplay"></div>
+      <div id="textTruncateNotice" class="truncate-notice" style="display:none"></div>
+    </div>
+
+    <!-- Step-by-step -->
+    <div class="card" id="cardStep" style="display:none">
+      <div class="card-header">
+        <span class="card-title">👣 Execução Passo a Passo</span>
+        <span id="stepAlgoName" style="font-size:.8rem;color:var(--muted)"></span>
+      </div>
+
+      <div class="step-controls" style="margin-bottom:.5rem">
+        <button class="ctrl-btn" id="btnFirst" onclick="goStep(0)">⏮</button>
+        <button class="ctrl-btn" id="btnPrev"  onclick="goStep(currentStep-1)">◀</button>
+        <button class="ctrl-btn" id="btnNext"  onclick="goStep(currentStep+1)">▶</button>
+        <button class="ctrl-btn" id="btnLast"  onclick="goStep(allSteps.length-1)">⏭</button>
+        <button class="ctrl-btn" id="btnPlay"  onclick="togglePlay()">▶ Auto</button>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <span class="step-counter" id="stepCounter">-</span>
+      </div>
+      <div id="stepInfoLine" style="font-size:.74rem;color:var(--muted);margin-bottom:.5rem;padding-left:.1rem"></div>
+      <div id="stepTruncateNotice" class="truncate-notice" style="display:none"></div>
+
+      <div id="stepTextDisplay" class="text-display" style="margin-top:.75rem;margin-bottom:.75rem"></div>
+      <div id="stepPatternDisplay" class="pattern-display" style="margin-bottom:.75rem"></div>
+
+      <div id="auxInfo" style="font-size:.78rem;color:var(--yellow);margin-bottom:.75rem;font-family:monospace"></div>
+
+      <div class="step-log" id="stepLog"></div>
+    </div>
+
+    <!-- Métricas -->
+    <div class="card" id="cardMetrics" style="display:none">
+      <div class="card-header">
+        <span class="card-title">📈 Métricas de Execução</span>
+        <span id="metricsAlgo" style="font-size:.8rem;color:var(--muted)"></span>
+      </div>
+      <div class="metrics-grid" id="metricsGrid"></div>
+      <div style="margin-top:1rem;font-size:.8rem;color:var(--muted)" id="complexityInfo"></div>
+    </div>
+
+    <!-- Resultados de ocorrências -->
+    <div class="card" id="cardResults" style="display:none">
+      <div class="card-header">
+        <span class="card-title">🔎 Ocorrências Encontradas</span>
+      </div>
+      <div id="resultsBody"></div>
+    </div>
+
+    <!-- Comparação -->
+    <div class="card" id="cardCompare" style="display:none">
+      <div class="card-header">
+        <span class="card-title">⚡ Comparação entre Algoritmos</span>
+      </div>
+      <table class="compare-table" id="compareTable">
+        <thead>
+          <tr>
+            <th>Algoritmo</th>
+            <th>Tempo (ms)</th>
+            <th>Comparações</th>
+            <th>Ocorrências</th>
+            <th>Complexidade Média</th>
+          </tr>
+        </thead>
+        <tbody id="compareBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Placeholder -->
+    <div id="placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:1rem;color:var(--muted);padding:3rem">
+      <svg width="64" height="64" fill="none" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" stroke="#2e3247" stroke-width="2"/><path d="M20 32h24M32 20v24" stroke="#6c63ff" stroke-width="2" stroke-linecap="round"/></svg>
+      <p style="font-size:.9rem;text-align:center">Faça o upload de um arquivo .txt,<br/>digite o padrão e execute a busca.</p>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Estado global ──
+let uploadedFiles  = [];
+let selectedAlgo   = 'naive';
+let allSteps       = [];
+let currentStep    = 0;
+let playInterval   = null;
+let stepText       = '';
+let stepPattern    = '';
+
+// ── Upload ──
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+// CORRIGIDO: try/catch + verificação de res.ok em handleFiles
+async function handleFiles(files) {
+  const fd = new FormData();
+  [...files].forEach(f => fd.append('files', f));
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert('Erro no upload: ' + (err.error || res.status));
+      return;
+    }
+    const data = await res.json();
+    data.files.forEach(f => { if (!uploadedFiles.includes(f)) uploadedFiles.push(f); });
+    renderChips();
+  } catch (e) {
+    alert('Falha no upload: ' + e.message);
+  }
+}
+
+function renderChips() {
+  const container = document.getElementById('fileChips');
+  container.innerHTML = uploadedFiles.map(f => `
+    <div class="chip">
+      📄 ${escHtml(f)}
+      <button onclick="removeFile('${escHtml(f)}')" title="Remover">×</button>
+    </div>`).join('');
+}
+
+// CORRIGIDO: removeFile também chama DELETE no backend para liberar disco
+async function removeFile(name) {
+  uploadedFiles = uploadedFiles.filter(f => f !== name);
+  renderChips();
+  try {
+    await fetch('/upload/' + encodeURIComponent(name), { method: 'DELETE' });
+  } catch (_) { /* falha silenciosa — arquivo será limpo pelo scheduler */ }
+}
+
+// ── Seleção de algoritmo ──
+document.getElementById('algoGrid').querySelectorAll('.algo-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.algo-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    selectedAlgo = card.dataset.algo;
+    ['cardMetrics','cardResults','cardText','cardStep','cardCompare'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+    document.getElementById('placeholder').style.display = '';
+  });
+});
+
+// ── Execução normal ──
+// CORRIGIDO: botão desabilitado durante execução; try/catch; verificação res.ok
+document.getElementById('btnRun').addEventListener('click', async () => {
+  const pattern = document.getElementById('patternInput').value.trim();
+  if (!pattern || !uploadedFiles.length) { alert('Selecione arquivos e digite o padrão.'); return; }
+
+  const btn = document.getElementById('btnRun');
+  btn.innerHTML = '<span class="spinner"></span> Executando…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pattern, algorithm: selectedAlgo, files: uploadedFiles }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert('Erro na busca: ' + (err.error || res.status));
+      return;
+    }
+    const data = await res.json();
+    renderResults(data.results, pattern);
+  } catch (e) {
+    alert('Falha na comunicação com o servidor: ' + e.message);
+  } finally {
+    btn.innerHTML = '▶ Executar';
+    btn.disabled = false;
+  }
+});
+
+function renderResults(results, pattern) {
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('cardCompare').style.display = 'none';
+
+  if (results.length > 0) {
+    const r         = results[0];
+    const totalOcc  = results.reduce((s, r) => s + r.occurrences.length, 0);
+    const totalComp = results.reduce((s, r) => s + r.comparisons, 0);
+    const totalTime = results.reduce((s, r) => s + r.time_ms, 0);
+    const totalLen  = results.reduce((s, r) => s + r.text_len, 0);
+    const multi     = results.length > 1;
+
+    document.getElementById('cardMetrics').style.display = '';
+    document.getElementById('metricsAlgo').textContent   = r.algorithm;
+    document.getElementById('metricsGrid').innerHTML = `
+      <div class="metric-card"><div class="metric-value">${totalTime.toFixed(3)}</div><div class="metric-label">Tempo (ms)${multi ? '<br><span style="font-size:.65rem;color:var(--muted)">todos os arquivos</span>' : ''}</div></div>
+      <div class="metric-card"><div class="metric-value">${totalComp.toLocaleString()}</div><div class="metric-label">Comparações${multi ? '<br><span style="font-size:.65rem;color:var(--muted)">todos os arquivos</span>' : ''}</div></div>
+      <div class="metric-card"><div class="metric-value">${totalLen.toLocaleString()}</div><div class="metric-label">Tamanho do Texto${multi ? '<br><span style="font-size:.65rem;color:var(--muted)">total</span>' : ''}</div></div>
+      <div class="metric-card"><div class="metric-value">${r.pattern_len}</div><div class="metric-label">Tamanho do Padrão</div></div>
+      <div class="metric-card"><div class="metric-value">${totalOcc}</div><div class="metric-label">Ocorrências${multi ? '<br><span style="font-size:.65rem;color:var(--muted)">em ' + results.length + ' arquivo(s)</span>' : ''}</div></div>
+    `;
+    document.getElementById('complexityInfo').innerHTML = `
+      <strong>Complexidade Teórica:</strong>
+      Melhor: <code>${r.complexity.melhor}</code> &nbsp;|&nbsp;
+      Médio: <code>${r.complexity.medio}</code> &nbsp;|&nbsp;
+      Pior: <code>${r.complexity.pior}</code> &nbsp;|&nbsp;
+      Espaço: <code>${r.complexity.espaco}</code><br><br>
+      <strong>Medição real:</strong> média de <code>${r.benchmark_runs}</code> execuções &nbsp;|&nbsp;
+      Melhor tempo: <code>${r.time_ms_best.toFixed(3)} ms</code> &nbsp;|&nbsp;
+      Pior tempo: <code>${r.time_ms_worst.toFixed(3)} ms</code><br>
+      <strong>Leitura analítica:</strong> ${r.notes}
+    `;
+
+    showAllTextVisualizations(results, pattern);
+  }
+
+  document.getElementById('cardResults').style.display = '';
+  document.getElementById('resultsBody').innerHTML = results.map(r => `
+    <div style="margin-bottom:.75rem">
+      <div style="font-size:.85rem;font-weight:600;margin-bottom:.4rem">
+        📄 ${escHtml((r.display_filename || r.filename))}
+        <span class="badge ${r.occurrences.length ? 'badge-found' : 'badge-none'}">
+          ${r.occurrences.length ? r.occurrences.length + ' ocorrência(s)' : 'Não encontrado'}
+        </span>
+        ${r.text_truncated ? `<span class="badge badge-warn" title="Texto truncado para exibição; a busca usou o texto completo">texto exibido parcialmente</span>` : ''}
+      </div>
+      ${r.occurrences.length ? `
+        <div style="font-family:monospace;font-size:.78rem;color:var(--muted)">
+          Posições: ${r.occurrences.slice(0, 30).join(', ')}${r.occurrences.length > 30 ? '…' : ''}
+        </div>` : ''}
+    </div>`).join('');
+}
+
+// Cache de resultados para troca de aba sem re-renderizar
+let _vizResults = [];
+let _vizPattern = '';
+
+function showAllTextVisualizations(results, pattern) {
+  _vizResults = results;
+  _vizPattern = pattern;
+
+  document.getElementById('textDisplay').innerHTML   = '';
+  document.getElementById('patternDisplay').innerHTML = '';
+  document.getElementById('fileTabs').innerHTML       = '';
+  document.getElementById('cardText').style.display  = '';
+
+  const tabsEl = document.getElementById('fileTabs');
+  tabsEl.innerHTML = results.map((r, i) => `
+    <button
+      class="tab-btn ${i === 0 ? 'tab-active' : ''}"
+      onclick="switchTab(${i})"
+      id="tab-btn-${i}"
+      title="${escHtml((r.display_filename || r.filename))}"
+    >
+      📄 ${escHtml((r.display_filename || r.filename))}
+      <span class="tab-badge ${r.occurrences.length ? 'tab-badge-found' : 'tab-badge-none'}">
+        ${r.occurrences.length}
+      </span>
+    </button>`).join('');
+
+  renderTextTab(0);
+
+  document.getElementById('patternDisplay').innerHTML =
+    [...pattern].map(c => `<span class="pat-ch">${escHtml(c)}</span>`).join('');
+}
+
+function switchTab(idx) {
+  document.getElementById('fileTabs').querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('tab-active', i === idx);
+  });
+  renderTextTab(idx);
+}
+
+function renderTextTab(idx) {
+  const result  = _vizResults[idx];
+  const pattern = _vizPattern;
+  const text    = result.original_text || '';
+  const m       = pattern.toLowerCase().length;
+  const occSet  = new Set(result.occurrences);
+
+  let html = '';
+  for (let i = 0; i < text.length; i++) {
+    let cls = '';
+    for (const occ of occSet) {
+      if (i >= occ && i < occ + m) { cls = 'highlight-found'; break; }
+    }
+    const ch = text[i] === ' ' ? '&nbsp;' : text[i] === '\n' ? '<br>' : escHtml(text[i]);
+    html += `<span class="ch ${cls}">${ch}</span>`;
+  }
+  document.getElementById('textDisplay').innerHTML = html;
+
+  // CORRIGIDO: aviso de truncamento visível ao usuário
+  const notice = document.getElementById('textTruncateNotice');
+  if (result.text_truncated) {
+    notice.style.display = '';
+    notice.textContent = `⚠ Exibindo os primeiros 50.000 caracteres de ${result.full_text_len.toLocaleString()} no total. A busca foi executada no texto completo.`;
+  } else {
+    notice.style.display = 'none';
+  }
+}
+
+function escHtml(c) {
+  return String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Passo a passo ──
+let stepFileMap = [];
+
+// CORRIGIDO: botão desabilitado; try/catch; verificação res.ok; aviso de truncamento
+document.getElementById('btnStep').addEventListener('click', async () => {
+  const pattern = document.getElementById('patternInput').value.trim();
+  if (!pattern || !uploadedFiles.length) { alert('Selecione arquivos e digite o padrão.'); return; }
+
+  const btn = document.getElementById('btnStep');
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+
+  try {
+    allSteps    = [];
+    stepFileMap = [];
+    let algoName = '';
+    let anyTruncated = false;
+    let truncatedInfo = '';
+
+    for (const filename of uploadedFiles) {
+      const res = await fetch('/step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pattern, algorithm: selectedAlgo, file: filename }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Erro ao buscar passos: ' + (err.error || res.status));
+        return;
+      }
+      const data = await res.json();
+      algoName = data.algorithm;
+
+      if (data.step_truncated) {
+        anyTruncated = true;
+        truncatedInfo = `${data.step_chars_used.toLocaleString()} de ${data.full_text_len.toLocaleString()} caracteres`;
+      }
+
+      const fileText = data.original_text || data.text;
+      const filePat  = data.pattern;
+
+      const separator = {
+        description: `📄 Arquivo: ${filename} — ${data.steps.length} passo(s)`,
+        comparisons: 0,
+        window_start: undefined,
+        text_index: undefined,
+        pattern_index: undefined,
+        _isSeparator: true,
+      };
+      allSteps.push(separator);
+      stepFileMap.push({ text: fileText, pattern: filePat });
+
+      data.steps.forEach(step => {
+        allSteps.push(step);
+        stepFileMap.push({ text: fileText, pattern: filePat });
+      });
+    }
+
+    stepText    = stepFileMap[0]?.text    || '';
+    stepPattern = stepFileMap[0]?.pattern || '';
+    currentStep = 0;
+
+    let totalComparisons = 0;
+    let blockMax = 0;
+    for (const s of allSteps) {
+      if (s._isSeparator) { totalComparisons += blockMax; blockMax = 0; }
+      else if ((s.comparisons || 0) > blockMax) blockMax = s.comparisons;
+    }
+    totalComparisons += blockMax;
+
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('cardStep').style.display    = '';
+    document.getElementById('stepAlgoName').textContent  = algoName;
+    document.getElementById('stepInfoLine').innerHTML =
+      `<span style="color:var(--text)">${allSteps.length}</span> passos de visualização &nbsp;·&nbsp; ` +
+      `<span style="color:var(--accent)">${totalComparisons}</span> comparações reais do algoritmo`;
+
+    // CORRIGIDO: aviso de truncamento do passo a passo
+    const stepNotice = document.getElementById('stepTruncateNotice');
+    if (anyTruncated) {
+      stepNotice.style.display = '';
+      stepNotice.textContent = `⚠ Passo a passo limitado aos primeiros ${truncatedInfo} para fluidez. Use "Executar" para busca no texto completo.`;
+    } else {
+      stepNotice.style.display = 'none';
+    }
+
+    stopPlay();
+    goStep(0);
+  } catch (e) {
+    alert('Falha na comunicação com o servidor: ' + e.message);
+  } finally {
+    btn.innerHTML = '👣 Passo a Passo';
+    btn.disabled  = false;
+  }
+});
+
+function goStep(idx) {
+  if (!allSteps.length) return;
+  idx = Math.max(0, Math.min(idx, allSteps.length - 1));
+  currentStep = idx;
+
+  const ctx = stepFileMap[idx];
+  if (ctx) { stepText = ctx.text; stepPattern = ctx.pattern; }
+
+  const step = allSteps[idx];
+  updateStepUI(step);
+  appendStepLog(step, idx);
+  updateProgress();
+}
+
+function updateStepUI(step) {
+  const n = stepText.length;
+  const m = stepPattern.length;
+
+  if (step._isSeparator) {
+    const sepText = stepText;
+    const sepPat  = stepPattern;
+    const sepM    = sepPat.length;
+    const occPositions = new Set();
+    const sepIdx = allSteps.indexOf(step);
+    for (let k = sepIdx + 1; k < allSteps.length; k++) {
+      const s = allSteps[k];
+      if (s._isSeparator) break;
+      if (s.found && s.window_start !== undefined) occPositions.add(s.window_start);
+    }
+
+    let textHtml = `<div style="color:var(--yellow);font-weight:600;margin-bottom:.5rem">${escHtml(step.description)}</div>`;
+    for (let i = 0; i < sepText.length; i++) {
+      let cls = '';
+      for (const occ of occPositions) {
+        if (i >= occ && i < occ + sepM) { cls = 'highlight-found'; break; }
+      }
+      const ch = sepText[i] === ' ' ? '&nbsp;' : sepText[i] === '\n' ? '<br>' : escHtml(sepText[i]);
+      textHtml += `<span class="ch ${cls}">${ch}</span>`;
+    }
+
+    document.getElementById('stepTextDisplay').innerHTML    = textHtml;
+    document.getElementById('stepPatternDisplay').innerHTML =
+      [...sepPat].map(c => `<span class="pat-ch">${escHtml(c)}</span>`).join('');
+    document.getElementById('auxInfo').textContent = '';
+    return;
+  }
+
+  let textHtml = '';
+  for (let i = 0; i < n; i++) {
+    let cls = '';
+    if (step.found && i >= step.window_start && i < step.window_start + m) cls = 'highlight-found';
+    else if (i === step.text_index) cls = step.match === false ? 'highlight-miss' : 'highlight-text';
+    else if (step.window_start !== undefined && i >= step.window_start && i < step.window_start + m) cls = 'highlight-text';
+    const ch = stepText[i] === ' ' ? '&nbsp;' : stepText[i] === '\n' ? '<br>' : escHtml(stepText[i]);
+    textHtml += `<span class="ch ${cls}">${ch}</span>`;
+  }
+  document.getElementById('stepTextDisplay').innerHTML = textHtml;
+
+  let patHtml = '';
+  for (let j = 0; j < m; j++) {
+    let cls = '';
+    if (step.found) cls = 'matched';
+    else if (j === step.pattern_index) cls = step.match === false ? 'missed' : 'active';
+    else if (step.pattern_index !== undefined && j < step.pattern_index) cls = 'matched';
+    patHtml += `<span class="pat-ch ${cls}">${escHtml(stepPattern[j])}</span>`;
+  }
+  document.getElementById('stepPatternDisplay').innerHTML = patHtml;
+
+  const aux = document.getElementById('auxInfo');
+  if (step.lps)      aux.textContent = `LPS: ${step.lps}`;
+  else if (step.bad_char) aux.textContent = `Bad Char: ${step.bad_char}`;
+  else               aux.textContent = '';
+}
+
+function appendStepLog(step, idx) {
+  const log   = document.getElementById('stepLog');
+  const cls   = step._isSeparator ? 'info' : step.found ? 'found' : step.match === false ? 'miss' : step.match === true ? 'match' : 'info';
+  const entry = document.createElement('div');
+  entry.className = `step-entry ${cls}`;
+  entry.innerHTML = `
+    ${escHtml(step.description)}
+    <div class="step-meta">Passo ${idx + 1}/${allSteps.length}${step._isSeparator ? '' : ' · Comparações: ' + step.comparisons}</div>
+  `;
+  log.innerHTML = '';
+  log.appendChild(entry);
+}
+
+function updateProgress() {
+  const pct = allSteps.length > 1 ? (currentStep / (allSteps.length - 1)) * 100 : 100;
+  document.getElementById('progressFill').style.width  = pct + '%';
+  document.getElementById('stepCounter').textContent   = `${currentStep + 1} / ${allSteps.length}`;
+  document.getElementById('btnPrev').disabled  = currentStep === 0;
+  document.getElementById('btnFirst').disabled = currentStep === 0;
+  document.getElementById('btnNext').disabled  = currentStep === allSteps.length - 1;
+  document.getElementById('btnLast').disabled  = currentStep === allSteps.length - 1;
+}
+
+let playing = false;
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  playing = true;
+  document.getElementById('btnPlay').textContent = '⏸ Pausar';
+  playInterval = setInterval(() => {
+    if (currentStep >= allSteps.length - 1) { stopPlay(); return; }
+    goStep(currentStep + 1);
+  }, 300);
+}
+function stopPlay() {
+  playing = false;
+  clearInterval(playInterval);
+  document.getElementById('btnPlay').textContent = '▶ Auto';
+}
+
+// ── Comparação de algoritmos ──
+// CORRIGIDO: Promise.all (paralelo), botão desabilitado, try/catch, verificação res.ok
+document.getElementById('btnCompare').addEventListener('click', async () => {
+  const pattern = document.getElementById('patternInput').value.trim();
+  if (!pattern || !uploadedFiles.length) { alert('Selecione arquivos e digite o padrão.'); return; }
+
+  const btn = document.getElementById('btnCompare');
+  btn.innerHTML = '<span class="spinner"></span> Comparando…';
+  btn.disabled = true;
+
+  try {
+    const algos = ['naive', 'rabin_karp', 'kmp', 'boyer_moore'];
+
+    // CORRIGIDO: execução em paralelo — até 4x mais rápido que sequencial
+    const responses = await Promise.all(
+      algos.map(algo => fetch('/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pattern, algorithm: algo, files: uploadedFiles }),
+      }))
+    );
+
+    const rows = [];
+    for (const res of responses) {
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!data.results.length) continue;
+      const totalTime = data.results.reduce((s, r) => s + r.time_ms, 0);
+      const totalComp = data.results.reduce((s, r) => s + r.comparisons, 0);
+      const totalOcc  = data.results.reduce((s, r) => s + r.occurrences.length, 0);
+      const r0 = data.results[0];
+      rows.push({ algo: r0.algorithm, time: totalTime, comparisons: totalComp, occurrences: totalOcc, complexity: r0.complexity.medio });
+    }
+
+    const minTime = Math.min(...rows.map(r => r.time));
+    const minComp = Math.min(...rows.map(r => r.comparisons));
+
+    document.getElementById('placeholder').style.display  = 'none';
+    document.getElementById('cardCompare').style.display  = '';
+    document.getElementById('compareBody').innerHTML = rows.map(r => `
+      <tr>
+        <td>${escHtml(r.algo)}</td>
+        <td class="${r.time === minTime ? 'best' : ''}">${r.time.toFixed(4)} ms</td>
+        <td class="${r.comparisons === minComp ? 'best' : ''}">${r.comparisons.toLocaleString()}</td>
+        <td><span class="badge ${r.occurrences ? 'badge-found' : 'badge-none'}">${r.occurrences}</span></td>
+        <td><code>${escHtml(r.complexity)}</code></td>
+      </tr>`).join('');
+  } catch (e) {
+    alert('Falha na comparação: ' + e.message);
+  } finally {
+    btn.innerHTML = '⚡ Comparar Algoritmos';
+    btn.disabled  = false;
+  }
+});
+</script>
+</body>
+</html>
